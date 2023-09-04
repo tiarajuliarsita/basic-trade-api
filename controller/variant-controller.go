@@ -10,6 +10,8 @@ import (
 )
 
 func CreateVariant(ctx *gin.Context) {
+ 
+
 	db := database.GetDb()
 	contentType := helpers.GetContentType(ctx)
 	newVariant := models.Variant{}

@@ -14,7 +14,7 @@ type Product struct {
 	Name      string     `json:"name" form:"name" gorm:"not null" valid:"required~your product name is required"`
 	ImageURL  string     `json:"image_url" form:"image_url" gorm:"not null" valid:"required~your image_url is required"`
 	AdminID   uint       `json:"admin_id" form:"admin_id"`
-	Admin     Admin      `gorm:"foreignKey:AdminID"`
+	// Admin     Admin      `json:"admin" form:"admin" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Variants  []Variant  `json:"variant" form:"variant" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
@@ -31,5 +31,3 @@ func (p *Product) BeforeCreate(tx *gorm.DB) (err error) {
 
 	return nil
 }
-
-// // Admin     Admin      `json:"admin,omitempty" gorm:"foreignKey:AdminID"`

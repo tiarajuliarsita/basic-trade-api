@@ -52,7 +52,7 @@ func GetAllProduct(ctx *gin.Context) {
 	db := database.GetDb()
 	products := []models.Product{}
 
-	err := db.Preload("Variants").Find(&products).Error
+	err := db.Model(&models.Product{}).Preload("Variants").Find(&products).Error
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err})
 		return
@@ -63,12 +63,13 @@ func GetAllProduct(ctx *gin.Context) {
 	})
 
 }
+
 func GetProductByUUID(ctx *gin.Context) {
 	db := database.GetDb()
 	productUUID := ctx.Param("uuid")
 	products := []models.Product{}
 
-	err := db.Preload("Admin").Preload("Variants").Where("uuid = ?", productUUID).Find(&products).Error
+	err := db.Preload("Variants").Where("uuid = ?", productUUID).Find(&products).Error
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err})
 		return
@@ -83,21 +84,26 @@ func DeleteProductByUUID(ctx *gin.Context) {
 	adminData := ctx.MustGet("adminData").(jwt.MapClaims)
 	adminID := uint(adminData["id"].(float64))
 
-	product := models.Product{}
 	productUUID := ctx.Param("uuid")
-	// admin := models.Admin{}
-	err := db.Where("admin_id=?", adminID).First(&product).Error
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Internal Server Error",
-			"message": "Failed to delete the product",
+
+	var product models.Product
+	if err := db.Where("uuid = ?", productUUID).First(&product).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error":   "Not Found",
+			"message": "Product not found",
 		})
 		return
 	}
-	// Perbaikan 1: Hapus tanda kurung kosong
-	err = db.Where("uuid = ?", productUUID).Delete(&product).Error
-	// Handle kesalahan jika penghapusan gagal
-	if err != nil {
+
+	if product.AdminID != adminID {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error":   "Forbidden",
+			"message": "You do not have permission to delete this product",
+		})
+		return
+	}
+
+	if err := db.Delete(&product).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Internal Server Error",
 			"message": "Failed to delete the product",
@@ -109,4 +115,60 @@ func DeleteProductByUUID(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Product deleted successfully",
 	})
+}
+
+func UpdateProductbyUUID(ctx *gin.Context) {
+	db := database.GetDb()
+	newProduct := request.Product{}
+	var product models.Product
+	adminData := ctx.MustGet("adminData").(jwt.MapClaims)
+	adminID := uint(adminData["id"].(float64))
+
+	
+
+	productUUID := ctx.Param("uuid")
+	if err := db.Where("uuid = ?", productUUID).First(&product).Error; err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{
+			"error":   "Not Found",
+			"message": "Product not found",
+		})
+		return
+	}
+	if product.AdminID != adminID {
+		ctx.JSON(http.StatusForbidden, gin.H{
+			"error":   "Forbidden",
+			"message": "You do not have permission to delete this product",
+		})
+		return
+	}
+
+	contentType := helpers.GetContentType(ctx)
+	if contentType == appJson {
+		ctx.ShouldBindJSON(&newProduct)
+	} else {
+		ctx.ShouldBind(&newProduct)
+	}
+	fileName := helpers.RemoveExtention(newProduct.File.Filename)
+	uploadResult, err := helpers.UploadFile(newProduct.File, fileName)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+	product.Name = newProduct.Name
+	product.ImageURL = uploadResult
+
+	err = db.Model(&product).Updates(product).Error
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Product updated successfully",
+		"product": product,
+	})
+
 }
