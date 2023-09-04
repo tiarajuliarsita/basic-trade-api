@@ -80,30 +80,12 @@ func GetProductByUUID(ctx *gin.Context) {
 }
 
 func DeleteProductByUUID(ctx *gin.Context) {
+	
 	db := database.GetDb()
-	adminData := ctx.MustGet("adminData").(jwt.MapClaims)
-	adminID := uint(adminData["id"].(float64))
-
 	productUUID := ctx.Param("uuid")
 
 	var product models.Product
-	if err := db.Where("uuid = ?", productUUID).First(&product).Error; err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"error":   "Not Found",
-			"message": "Product not found",
-		})
-		return
-	}
-
-	if product.AdminID != adminID {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"error":   "Forbidden",
-			"message": "You do not have permission to delete this product",
-		})
-		return
-	}
-
-	if err := db.Delete(&product).Error; err != nil {
+	if err := db.Where("uuid = ?", productUUID).Delete(&product).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Internal Server Error",
 			"message": "Failed to delete the product",
@@ -121,26 +103,8 @@ func UpdateProductbyUUID(ctx *gin.Context) {
 	db := database.GetDb()
 	newProduct := request.Product{}
 	var product models.Product
-	adminData := ctx.MustGet("adminData").(jwt.MapClaims)
-	adminID := uint(adminData["id"].(float64))
-
-	
 
 	productUUID := ctx.Param("uuid")
-	if err := db.Where("uuid = ?", productUUID).First(&product).Error; err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"error":   "Not Found",
-			"message": "Product not found",
-		})
-		return
-	}
-	if product.AdminID != adminID {
-		ctx.JSON(http.StatusForbidden, gin.H{
-			"error":   "Forbidden",
-			"message": "You do not have permission to delete this product",
-		})
-		return
-	}
 
 	contentType := helpers.GetContentType(ctx)
 	if contentType == appJson {
@@ -148,24 +112,35 @@ func UpdateProductbyUUID(ctx *gin.Context) {
 	} else {
 		ctx.ShouldBind(&newProduct)
 	}
-	fileName := helpers.RemoveExtention(newProduct.File.Filename)
-	uploadResult, err := helpers.UploadFile(newProduct.File, fileName)
-	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": err.Error(),
-		})
-		return
+
+	if newProduct.File != nil {
+		fileName := helpers.RemoveExtention(newProduct.File.Filename)
+		uploadResult, err := helpers.UploadFile(newProduct.File, fileName)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+
+		}
+		product.ImageURL = uploadResult
 	}
 	product.Name = newProduct.Name
-	product.ImageURL = uploadResult
 
-	err = db.Model(&product).Updates(product).Error
+	err := db.Model(&product).Where("uuid = ?", productUUID).Updates(product).Error
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 		})
 		return
 	}
+	err = db.Where("uuid = ?", productUUID).Find(&product).Error
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+		})
+		return
+	}
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Product updated successfully",
 		"product": product,

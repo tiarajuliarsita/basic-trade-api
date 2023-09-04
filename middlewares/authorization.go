@@ -12,8 +12,8 @@ import (
 func ProductAuthorization() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		db := database.GetDb()
-		productUUID := ctx.Param("productUUID")
-		adminData := ctx.MustGet("userData").(jwt.MapClaims)
+		productUUID := ctx.Param("uuid")
+		adminData := ctx.MustGet("adminData").(jwt.MapClaims)
 		adminID := uint(adminData["id"].(float64))
 
 		var getProduct models.Product
