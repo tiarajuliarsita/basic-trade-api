@@ -4,6 +4,7 @@ import (
 	"final-project/database"
 	"final-project/helpers"
 	"final-project/models"
+	pagnation "final-project/pangantion"
 	"final-project/request"
 	"net/http"
 
@@ -40,7 +41,10 @@ func CreateProduct(ctx *gin.Context) {
 
 	err = db.Create(&product).Error
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err})
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+			"error":   "Bad request",
+		})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{
@@ -50,18 +54,27 @@ func CreateProduct(ctx *gin.Context) {
 
 func GetAllProduct(ctx *gin.Context) {
 	db := database.GetDb()
+	lastPage, limitInt, offsetInt, page, total := pagnation.Pagnation(ctx)
 	products := []models.Product{}
-
-	err := db.Model(&models.Product{}).Preload("Variants").Find(&products).Error
+	err := db.Model(&models.Product{}).Offset(offsetInt).Limit(limitInt).Preload("Admin").Preload("Variants").Find(&products).Error
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err})
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+			"error":   "Bad request",
+		})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"product": products,
+		"products": products,
+		"pagination": gin.H{
+			"last_page": lastPage,
+			"limit":     limitInt,
+			"offset":    offsetInt,
+			"page":      page,
+			"total":     total,
+		},
 	})
-
 }
 
 func GetProductByUUID(ctx *gin.Context) {
@@ -80,14 +93,14 @@ func GetProductByUUID(ctx *gin.Context) {
 }
 
 func DeleteProductByUUID(ctx *gin.Context) {
-	
+
 	db := database.GetDb()
 	productUUID := ctx.Param("uuid")
 
 	var product models.Product
 	if err := db.Where("uuid = ?", productUUID).Delete(&product).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "Internal Server Error",
+			"error":   err.Error(),
 			"message": "Failed to delete the product",
 		})
 		return
@@ -96,6 +109,7 @@ func DeleteProductByUUID(ctx *gin.Context) {
 	// Produk berhasil dihapus
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Product deleted successfully",
+		"data":    "null",
 	})
 }
 

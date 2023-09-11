@@ -1,6 +1,8 @@
 package helpers
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"golang.org/x/crypto/bcrypt"
+)
 
 func HassPass(pass string) (string, error) {
 	p := []byte(pass)
@@ -12,8 +14,10 @@ func HassPass(pass string) (string, error) {
 	return string(Hass), nil
 }
 
-func ComparePass(hass, pass []byte) bool {
+func ComparePass(hass, pass []byte) (bool, error) {
 	err := bcrypt.CompareHashAndPassword(hass, pass)
-
-	return err == nil
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
