@@ -4,7 +4,7 @@ import (
 	"final-project/database"
 	"final-project/helpers"
 	"final-project/models"
-	pagnation "final-project/pangantion"
+	"final-project/pagnation"
 	"final-project/request"
 	"net/http"
 
@@ -54,9 +54,11 @@ func CreateProduct(ctx *gin.Context) {
 
 func GetAllProduct(ctx *gin.Context) {
 	db := database.GetDb()
+	search := pagnation.Search(ctx)
 	lastPage, limitInt, offsetInt, page, total := pagnation.Pagnation(ctx)
 	products := []models.Product{}
-	err := db.Model(&models.Product{}).Offset(offsetInt).Limit(limitInt).Preload("Admin").Preload("Variants").Find(&products).Error
+	// err := db.Model(&models.Product{}).Offset(offsetInt).Limit(limitInt).Preload("Admin").Preload("Variants").Find(&products).Error
+	err := db.Model(&models.Product{}).Where("name LIKE ?", "%"+search+"%").Offset(offsetInt).Limit(limitInt).Preload("Admin").Preload("Variants").Find(&products).Error
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
