@@ -15,10 +15,8 @@ func VariantsRoutes(app *gin.RouterGroup) {
 		variant.GET("/:uuid", controller.GetVariantByUuid)
 
 		variant.Use(middlewares.Authentication())
-		// variant.Use(middlewares.ProductAuthorization())
-		// variant.POST("/", middlewares.VariantAuthorization(), controller.CreateVariant)
 		variant.POST("/",  controller.CreateVariant)
 		variant.PUT("/:uuid", middlewares.VariantAuthorization(), controller.UpdateVariantByUuid)
-		variant.DELETE("/:uuid", controller.DeleteVariantByUUID)
+		variant.DELETE("/:uuid", middlewares.VariantAuthorization(), controller.DeleteVariantByUUID)
 	}
 }

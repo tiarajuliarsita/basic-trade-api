@@ -19,11 +19,12 @@ func CreateProduct(ctx *gin.Context) {
 	adminData := ctx.MustGet("adminData").(jwt.MapClaims)
 	adminID := uint(adminData["id"].(float64))
 
-	contentType := helpers.GetContentType(ctx)
-	if contentType == appJson {
-		ctx.ShouldBindJSON(&newProduct)
-	} else {
-		ctx.ShouldBind(&newProduct)
+	err := helpers.Binding(ctx, &newProduct, appJson)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+		})
+		return
 	}
 
 	fileName := helpers.RemoveExtention(newProduct.File.Filename)
@@ -34,6 +35,7 @@ func CreateProduct(ctx *gin.Context) {
 		})
 		return
 	}
+
 	product := models.Product{}
 	product.AdminID = adminID
 	product.ImageURL = uploadResult
@@ -54,10 +56,11 @@ func CreateProduct(ctx *gin.Context) {
 
 func GetAllProduct(ctx *gin.Context) {
 	db := database.GetDb()
+	// search and pagnation
 	search := pagnation.Search(ctx)
 	lastPage, limitInt, offsetInt, page, total := pagnation.Pagnation(ctx)
+
 	products := []models.Product{}
-	// err := db.Model(&models.Product{}).Offset(offsetInt).Limit(limitInt).Preload("Admin").Preload("Variants").Find(&products).Error
 	err := db.Model(&models.Product{}).Where("name LIKE ?", "%"+search+"%").Offset(offsetInt).Limit(limitInt).Preload("Admin").Preload("Variants").Find(&products).Error
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -95,7 +98,6 @@ func GetProductByUUID(ctx *gin.Context) {
 }
 
 func DeleteProductByUUID(ctx *gin.Context) {
-
 	db := database.GetDb()
 	productUUID := ctx.Param("uuid")
 
@@ -121,12 +123,12 @@ func UpdateProductbyUUID(ctx *gin.Context) {
 	var product models.Product
 
 	productUUID := ctx.Param("uuid")
-
-	contentType := helpers.GetContentType(ctx)
-	if contentType == appJson {
-		ctx.ShouldBindJSON(&newProduct)
-	} else {
-		ctx.ShouldBind(&newProduct)
+	err := helpers.Binding(ctx, &newProduct, appJson)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+		})
+		return
 	}
 
 	if newProduct.File != nil {
@@ -140,9 +142,9 @@ func UpdateProductbyUUID(ctx *gin.Context) {
 		}
 		product.ImageURL = uploadResult
 	}
-	product.Name = newProduct.Name
 
-	err := db.Model(&product).Where("uuid = ?", productUUID).Updates(product).Error
+	product.Name = newProduct.Name
+	err = db.Model(&product).Where("uuid = ?", productUUID).Updates(product).Error
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
@@ -156,7 +158,7 @@ func UpdateProductbyUUID(ctx *gin.Context) {
 		})
 		return
 	}
-
+	// succes updated product
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Product updated successfully",
 		"product": product,

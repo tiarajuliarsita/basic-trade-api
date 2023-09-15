@@ -14,22 +14,42 @@ import (
 func VariantAuthorization() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		db := database.GetDb()
+		variantUUID := ctx.Param("uuid")
 		adminData := ctx.MustGet("adminData").(jwt.MapClaims)
 		adminID := uint(adminData["id"].(float64))
-		var getProduct models.Product
-		err := db.Where("admin_id = ?", adminID).Find(&getProduct).Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-					"error":   err.Error(),
-					"message": "Data Not Found",
-				})
-				return
-			}
 
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+		var variant models.Variant
+		err := db.Where("uuid = ?", variantUUID).Find(&variant).Error
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 				"error":   err.Error(),
-				"message": "Internal Server Error",
+				"message": "Data Not Found",
+			})
+			return
+		}
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"message": "Variant not found",
+				"error":   err.Error(),
+			})
+			return
+		}
+
+		// Periksa apakah admin memiliki produk dengan UUID yang sesuai
+		var product models.Product
+		if err := db.Where("id = ?", variant.ProductID).Find(&product).Error; err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "Internal Server Error",
+				"message": "Failed to retrieve product",
+			})
+			return
+		}
+
+		if product.AdminID != adminID {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"message": "You are not authorized for this data.",
+				"error":err.Error(),
 			})
 			return
 		}
@@ -37,31 +57,3 @@ func VariantAuthorization() gin.HandlerFunc {
 		ctx.Next()
 	}
 }
-
-// func VariantAuthorization() gin.HandlerFunc {
-// 	return func(ctx *gin.Context) {
-// 		db := database.GetDb()
-// 		adminData := ctx.MustGet("adminData").(jwt.MapClaims)
-// 		adminID := uint(adminData["id"].(float64))
-
-// 		// Cek apakah ID admin ada dalam tabel produk
-// 		var productCount int64
-// 		err := db.Model(&models.Product{}).Where("admin_id = ?", adminID).Count(&productCount).Error
-// 		if err != nil {
-// 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-// 				"error":   err.Error(),
-// 				"message": "Internal Server Error",
-// 			})
-// 			return
-// 		}
-
-// 		if productCount == 0 {
-// 			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-// 				"message": "Data Not Found",
-// 			})
-// 			return
-// 		}
-
-// 		ctx.Next()
-// 	}
-// }

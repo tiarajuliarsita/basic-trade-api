@@ -15,33 +15,20 @@ import (
 
 func CreateVariant(ctx *gin.Context) {
 	db := database.GetDb()
-	contentType := helpers.GetContentType(ctx)
 	newVariant := request.Variant{}
 	adminData := ctx.MustGet("adminData").(jwt.MapClaims) 
 	adminID := uint(adminData["id"].(float64))
 
-	if contentType == appJson {
-		if err := ctx.ShouldBindJSON(&newVariant); err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"message": "Invalid JSON",
-				"error":   err.Error(),
-			})
-			return
-		}
-	} else {
-		if err := ctx.ShouldBind(&newVariant); err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"message": "Invalid form data",
-				"error":   err.Error(),
-			})
-			return
-		}
+	err:=helpers.Binding(ctx, &newVariant, appJson)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+		})
+		return
 	}
-
 	var product models.Product
 
-	err := db.Where("uuid = ?", newVariant.UUID).First(&product).Error
-
+	err = db.Where("uuid = ?", newVariant.UUID).First(&product).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 			"error":   err.Error(),
@@ -51,7 +38,7 @@ func CreateVariant(ctx *gin.Context) {
 	}
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"message": "Product not found",
+			"message": "Product Not Found",
 			"error":   err.Error(),
 		})
 		return
@@ -78,9 +65,16 @@ func CreateVariant(ctx *gin.Context) {
 		})
 		return
 	}
+	// err = db.Where("uuid = ?", newVariant.UUID).Find(&variant).Error
+	// if err != nil {
+	// 	ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+	// 		"message": err.Error(),
+	// 	})
+	// 	return 
+	// }
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"variant": newVariant,
+		"variant": variant,
 	})
 }
 
@@ -123,49 +117,17 @@ func GetVariantByUuid(ctx *gin.Context) {
 func UpdateVariantByUuid(ctx *gin.Context) {
 	db := database.GetDb()
 	variantUUID := ctx.Param("uuid")
-	adminData := ctx.MustGet("adminData").(jwt.MapClaims)
-    adminID := uint(adminData["id"].(float64))
-
 	newVariant := models.Variant{}
-	contentType := helpers.GetContentType(ctx)
-	if contentType == appJson {
-		ctx.ShouldBindJSON(&newVariant)
-	} else {
-		ctx.ShouldBind(&newVariant)
+	err:=helpers.Binding(ctx, &newVariant, appJson)
+	if err != nil {
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"message": err.Error(),
+		})
+		return
 	}
+
 	variant := models.Variant{}
-	err := db.Where("uuid = ?", variantUUID).Find(&variant).Error
-
-    if errors.Is(err, gorm.ErrRecordNotFound) {
-        ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-            "error":   err.Error(),
-            "message": "Data Not Found",
-        })
-        return
-    }
-    if err != nil {
-        ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-            "message": "Variant not found",
-            "error":   err.Error(),
-        })
-        return
-    }
-	var product models.Product
-    if err := db.Where("id = ?", variant.ProductID).Find(&product).Error; err != nil {
-        ctx.JSON(http.StatusInternalServerError, gin.H{
-            "error":   "Internal Server Error",
-            "message": "Failed to retrieve product",
-        })
-        return
-    }
-
-    if product.AdminID != adminID {
-        ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-            "message": "You are not authorized to update this variant",
-        })
-        return
-    }
-
+	
 	err = db.Model(&newVariant).Where("uuid = ?", variantUUID).Updates(newVariant).Error
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -178,7 +140,7 @@ func UpdateVariantByUuid(ctx *gin.Context) {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 		})
-		return
+		return 
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
@@ -190,44 +152,7 @@ func UpdateVariantByUuid(ctx *gin.Context) {
 func DeleteVariantByUUID(ctx *gin.Context) {
     db := database.GetDb()
     variantUUID := ctx.Param("uuid")
-    adminData := ctx.MustGet("adminData").(jwt.MapClaims)
-    adminID := uint(adminData["id"].(float64))
-
     var variant models.Variant
-    err := db.Where("uuid = ?", variantUUID).Find(&variant).Error
-
-    if errors.Is(err, gorm.ErrRecordNotFound) {
-        ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-            "error":   err.Error(),
-            "message": "Data Not Found",
-        })
-        return
-    }
-    if err != nil {
-        ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-            "message": "Variant not found",
-            "error":   err.Error(),
-        })
-        return
-    }
-
-    // Periksa apakah admin memiliki produk dengan UUID yang sesuai
-    var product models.Product
-    if err := db.Where("id = ?", variant.ProductID).Find(&product).Error; err != nil {
-        ctx.JSON(http.StatusInternalServerError, gin.H{
-            "error":   "Internal Server Error",
-            "message": "Failed to retrieve product",
-        })
-        return
-    }
-
-    if product.AdminID != adminID {
-        ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-            "message": "You are not authorized to delete this variant",
-        })
-        return
-    }
-
     if err := db.Where("uuid = ?", variantUUID).Delete(&variant).Error; err != nil {
         ctx.JSON(http.StatusInternalServerError, gin.H{
             "error":   "Internal Server Error",
