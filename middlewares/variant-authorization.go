@@ -19,8 +19,8 @@ func VariantAuthorization() gin.HandlerFunc {
 		adminID := uint(adminData["id"].(float64))
 
 		var variant models.Variant
+		//cari variant dengan uuid sesuai params
 		err := db.Where("uuid = ?", variantUUID).Find(&variant).Error
-
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
 				"error":   err.Error(),
@@ -36,23 +36,32 @@ func VariantAuthorization() gin.HandlerFunc {
 			return
 		}
 
-		// Periksa apakah admin memiliki produk dengan UUID yang sesuai
+		//  cari product dengan berdasarkan product id di tabel variant
 		var product models.Product
-		if err := db.Where("id = ?", variant.ProductID).Find(&product).Error; err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{
-				"error":   "Internal Server Error",
+		err = db.Where("id = ?", variant.ProductID).Find(&product).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+					"error":   err.Error(),
+					"message": "Data Not Found",
+				})
+				return
+			}
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"error":   err.Error(),
 				"message": "Failed to retrieve product",
 			})
 			return
 		}
-
+		
 		if product.AdminID != adminID {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 				"message": "You are not authorized for this data.",
-				"error":err.Error(),
 			})
-			return
+			
+			return 
 		}
+		
 
 		ctx.Next()
 	}

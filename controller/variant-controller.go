@@ -65,16 +65,10 @@ func CreateVariant(ctx *gin.Context) {
 		})
 		return
 	}
-	// err = db.Where("uuid = ?", newVariant.UUID).Find(&variant).Error
-	// if err != nil {
-	// 	ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-	// 		"message": err.Error(),
-	// 	})
-	// 	return 
-	// }
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"variant": variant,
+		"message":true,
 	})
 }
 
@@ -127,14 +121,20 @@ func UpdateVariantByUuid(ctx *gin.Context) {
 	}
 
 	variant := models.Variant{}
-	
 	err = db.Model(&newVariant).Where("uuid = ?", variantUUID).Updates(newVariant).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
+				"message": "Variant not found",
+			})
+			return
+		}
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 			"message": err.Error(),
 		})
 		return
 	}
+
 	err = db.Where("uuid = ?", variantUUID).Find(&variant).Error
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
@@ -158,7 +158,7 @@ func DeleteVariantByUUID(ctx *gin.Context) {
             "error":   "Internal Server Error",
             "message": "Failed to delete the variant",
         })
-        return
+        return 
     }
 
     // Variant berhasil dihapus
