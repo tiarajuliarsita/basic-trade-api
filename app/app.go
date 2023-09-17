@@ -21,6 +21,6 @@ func App() {
 	}
 
 	port := os.Getenv("PORT")
-	app.Run(port)
+	app.Run(":"+ port)
 
 }
