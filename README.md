@@ -30,3 +30,20 @@ Create your MySQL database and update the database configuration in the project.
 ### Run the program:
 ```shell
 go run main.go
+```
+### Api Route list
+| Method | URL             | Description     |
+| ------ | --------------- | --------------- |
+| POST   | {{baseurl}}/auth/login          | admin login      |
+| POST   | {{baseurl}}/auth/register         | admin register      |
+| GET    | {{baseurl}}/products         | get all product  |
+| GET   | {{baseurl}}/products/:uuid          | get Product by id    |
+| POST    |{{baseurl}}/products     | create product    |
+| DELETE | {{baseurl}}/products/:uuid     | delete product    |
+| PUT | {{baseurl}}/products/:uuid     | Update product    |
+| GET    | {{baseurl}}/products/variants         | get all variants  |
+| GET   | {{baseurl}}/products/variants/:uuid          | get variant by id    |
+| POST    |{{baseurl}}/products/variants     | create variant    |
+| DELETE | {{baseurl}}/products/variants/:uuid     | delete variant    |
+| PUT | {{baseurl}}/products/variants/:uuid     | Update variant    |
+
